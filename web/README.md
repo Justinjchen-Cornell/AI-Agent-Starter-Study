@@ -1,10 +1,23 @@
-# 🌐 互动学习网站（建设中）
+# 🌐 互动学习网站
 
-规划中的功能：
+课程在线阅读 / 复述题点击展开答案 / 学习进度打卡 / 实时演示台（零依赖，纯 HTML/CSS/JS）。
 
-- 9 节课在线阅读（与 docs/lessons 同步）
-- 复述题点击展开参考答案
-- 学习进度打卡（浏览器本地存储）
-- "实时演示台"：连接本地 FastAPI 服务器，WebSocket 直播 Agent 干活
+## 在线版
 
-敬请期待。
+https://justinjchen-cornell.github.io/AI-Agent-Starter-Study/
+
+## 本地使用
+
+在**项目根目录**运行：
+
+```bash
+python -m http.server 8080
+```
+
+然后浏览器打开 http://localhost:8080/web/
+
+## 说明
+
+- 课程内容实时读取自 `docs/lessons/*.md`（新增课程时只需更新 `web/js/lessons-data.js`）
+- "实时演示台"需要本机先启动项目服务器：`python api/server.py`
+- 学习进度保存在浏览器 localStorage 中，不会上传任何数据

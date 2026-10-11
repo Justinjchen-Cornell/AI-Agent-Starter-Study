@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>实时演示台 - AI-Agent-Starter-Study</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="vendor/github-dark.min.css">
+</head>
+<body>
+<nav class="nav"><div class="container">
+  <a class="logo" href="index.html">🎓 AI-Agent-<span>Starter-Study</span></a>
+  <div class="links">
+    <a href="index.html">学习地图</a>
+    <a href="lesson.html?file=01-llm.md">开始阅读</a>
+    <a href="https://github.com/Justinjchen-Cornell/AI-Agent-Starter-Study" target="_blank" rel="noopener">GitHub ↗</a>
+  </div>
+</div></nav>
+
+<div class="container" style="padding-bottom:60px">
+  <section class="hero" style="padding:40px 0 10px">
+    <h1>🖥 实时演示台</h1>
+    <p class="sub">连接你本机运行的 FastAPI 服务器，亲眼看着 Agent 调度子智能体、调用工具、吐出结果</p>
+  </section>
+
+  <div class="demo-panel">
+    <div class="demo-row">
+      <span><span id="statusDot" class="status-dot"></span><span id="statusText">正在检测服务器…</span></span>
+      <input type="text" id="serverInput" placeholder="http://localhost:8000">
+      <button id="pingBtn" class="btn">检测</button>
+    </div>
+    <textarea id="queryInput" placeholder="输入任务，例如：搜索一下2025年AI Agent领域有哪些新进展"></textarea>
+    <div class="demo-row mt">
+      <button id="sendBtn" class="btn primary">🚀 发送任务</button>
+      <button id="stopBtn" class="btn" disabled>停止监听</button>
+      <button id="clearBtn" class="btn">清空</button>
+    </div>
+    <div class="meta-line">
+      <span>会话 ID：<b id="tidBox">-</b></span>
+      <span>已运行：<b id="timerBox">-</b></span>
+    </div>
+    <p class="tip">⚠️ 使用前请先在项目里运行 <kbd>python api/server.py</kbd>（窗口保持开着）。若本页是 https 在线版、服务器在本机 http://localhost，现代浏览器允许连接本机服务。</p>
+  </div>
+
+  <h2 class="section-title">📡 工作直播 <small>Agent 的每一步都会实时出现在这里</small></h2>
+  <ul class="timeline" id="log"></ul>
+</div>
+
+<footer><div class="container">
+  <div>🎓 AI-Agent-Starter-Study —— 逐行读懂一个多智能体项目</div>
+  <div>基于 <a href="https://github.com/waseens/deep-search-pro" target="_blank" rel="noopener">waseens/deep-search-pro</a> 改编 · MIT License</div>
+</div></footer>
+
+<script src="vendor/marked.min.js"></script>
+<script src="js/demo.js"></script>
+</body>
+</html>

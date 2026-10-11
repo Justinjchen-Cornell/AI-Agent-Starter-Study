@@ -59,7 +59,11 @@ python api/server.py
 
 ## 🌐 互动学习网站
 
-`web/` 目录将包含一个零依赖的互动学习站：课程在线阅读、复述题点击查看答案、学习进度打卡、以及连接本地服务器的"实时演示台"。（建设中，欢迎关注）
+**在线版（推荐）**：https://justinjchen-cornell.github.io/AI-Agent-Starter-Study/
+
+**本地版**：在项目根目录运行 `python -m http.server 8080`，浏览器打开 http://localhost:8080/web/ 即可。
+
+功能：课程在线阅读 / 复述题点击展开答案 / 学习进度打卡（浏览器本地存储）/ **实时演示台**（连接本地 FastAPI 服务器，WebSocket 直播 Agent 干活全过程）。
 
 ## 🔧 相对原项目的修复与增强
 
@@ -77,7 +81,7 @@ python api/server.py
 ├── utils/            # 路径安全等工具
 ├── prompt/           # 提示词配置（prompts.yml）
 ├── docs/             # ★ 学习资料：9 节课 / 环境指南（术语卡、踩坑实录建设中）
-├── web/              # ★ 互动学习网站（建设中）
+├── web/              # ★ 互动学习网站（课程阅读/打卡/演示台）
 ├── scripts/          # 辅助脚本
 └── requirements.txt
 ```
