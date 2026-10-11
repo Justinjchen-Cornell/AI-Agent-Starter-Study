@@ -110,9 +110,14 @@ async def run_task(request: TaskRequest):
 1. 为什么在 /docs 点 Execute 后**马上**收到 `started`、而任务要跑 1~3 分钟？——因为接口只负责"登记 + 发射"，不等结果
 2. 如果写成 `await run_deep_agent(...)` 会怎样？——接口会**卡住 1~3 分钟**等任务跑完才响应；多来几个用户，服务器直接堵死
 
-> 比喻：`create_task` = 服务员把订单交给后厨，立刻回来招呼客人；`await` = 服务员站在厨房门口等菜做完。
+> 比喻：`create_task` = 服务员把订单交给后厨、给你一张**取餐号小票**（thread_id）就让你坐下等；`await` = 服务员站在厨房门口等菜做完。
 
-那"直播"怎么办？任务在后台跑，进度怎么传出去？——靠下一个区块。
+> 🧠 **记住这个模式的名字：异步任务 + 立即响应**——先给号、后台做、做完通知。几乎所有"AI 长任务"的后端都长这样。
+
+那"做完通知"和"查产出"怎么办？这个项目给了两条路：
+
+- **WebSocket**：后厨进度实时播报（下一个区块）
+- **`thread_id`**：凭小票随时查产出文件（④ 区的 `/api/files`）
 
 ## ③ 直播通道：WebSocket
 
@@ -138,10 +143,10 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
         manager.disconnect(websocket, thread_id)
 ```
 
-- URL 里的 `{thread_id}` = 会话编号——**每根"电话线"绑定一个会话**，接线管家（`manager`）记着"哪个编号对应哪根线"
-- `manager.connect(...)`：把连接登记进连接池（第 7 课拆开 `manager` 看它怎么管这些线）
+- URL 里的 `{thread_id}` = **对号入座**：每根"电话线"绑定一个会话；`manager` 内部维护一张 `{thread_id: websocket 连接}` 的表，Agent 推消息时报编号，manager 就知道该往哪条线发（第 7 课细讲）
+- `manager.connect(...)`：把连接登记进这张表
 - `while True` 循环：挂着这根线，干两件事——**收消息**（前端心跳 ping）和**回 pong**（"我还在"），防止连接被判定超时
-- 前端断开时从连接池除名
+- 前端断开时必须捕获 `WebSocketDisconnect` 并从连接池**注销**——不清理的话，一是断开事件会报错刷屏，二是那张表越积越多（**内存泄漏**）
 
 ⚠️ 注意一个"最熟悉的陌生人"：你看到的 `[Monitor:assistant_call] 正在调用助手` 等**直播消息并不从这个循环里发出**——是 monitor 从"另一头"通过 `manager` 直接推送的（第 7 课讲）。这个端点主要负责"接线 + 保活 + 清理"。
 
@@ -178,7 +183,8 @@ if not abs_path.is_relative_to(output_abs):
 
 - 用户要下载文件，报上完整路径
 - **安全检查**：`resolve()` 解析成真实路径后，判断"**是不是在 output/ 目录里面**"——不在就打回！
-- 这是在防**路径穿越攻击**：有人可能传 `../` 之类想偷系统里的其他文件。这就是第 2 课说的"第二道代码防线"——第 9 课 `path_utils.py` 的主角，先记住这个写法
+- 这是在防**路径穿越攻击**：有人可能传 `../../etc/passwd` 之类的路径，试图读取服务器上的任意文件。`resolve()` 把路径解析成绝对路径后，`is_relative_to()` 确认它确实在 `output/` 里
+- **凡是接受用户传入路径的接口，这是必做检查**——否则等于把整个文件系统暴露出去。这就是第 2 课说的"第二道代码防线"——第 9 课 `path_utils.py` 的主角，先记住这个写法
 
 ### GET /api/files —— 浏览会话文件
 
@@ -198,7 +204,8 @@ async def startup_event():
     print(f"[Server] WebSocket Manager bound to loop: {id(loop)}")
 ```
 
-- 服务器启动时做的事：**把"事件循环"记下来，绑定给连接池管家**——为"从别的地方也能正确推送消息"做准备
+- 服务器启动时做的事：**把"事件循环"记下来，绑定给连接池管家**
+- **什么是事件循环？** 可以理解为 asyncio 的"**总调度中心**"——所有异步任务（协程）都排在这个中心的队列里轮流执行。绑定它 = 记下"总调度中心的联系方式"：将来 Agent 在后台跑任务、要推消息给前端时，**推消息这个动作必须回到这个调度中心里排队执行**（第 7 课看具体用途）
 - 日志里的 `[Server] WebSocket Manager bound to loop: 1572291443216` 就是它打的（还记得当初分析过的"两个一模一样的数字"吗？）
 - 为什么需要这次绑定？——第 7 课的重头戏（"事件循环归属判断"），先埋个种子
 
@@ -224,6 +231,8 @@ if __name__ == "__main__":
    ▼                                          ▼
 ③ manager 连接池 ←──────── monitor 推送 ──── 各种直播事件（第7课）
 （浏览器实时收到：正在调用助手 / 正在搜索 / 任务完成）
+   │
+   └─ ④ 凭号取餐：GET /api/files 查产出 → GET /api/download 下载文件
 ```
 
 ## 📌 概念卡
@@ -237,25 +246,28 @@ if __name__ == "__main__":
 | manager 连接池 | 记着"哪个 thread_id 对应哪根连接线" |
 | 路径门禁 | resolve + is_relative_to：只允许访问 output/ 内（防路径穿越） |
 | uvicorn.run | 启动开关；reload=True = 监工+干活双进程 |
+| 异步任务 + 立即响应 | AI 长任务后端标准模式：先给号、后台做、做完通知 |
 
 ## ✍️ 复述题（先自己想，再展开对照）
 
-1. "立刻收到 started、任务却在后台跑"——靠哪一行实现？改成 `await run_deep_agent(...)` 会发生什么？
+1. "立刻收到 started、任务却在后台跑"——靠哪一行实现？改成 `await run_deep_agent(...)` 会导致什么连锁反应？
 2. 进度直播为什么必须用 WebSocket，而不是普通 HTTP 接口？
 3. `TaskRequest` 这个类有什么用？（提示：校验 + 文档）
-4. `/api/upload` 把文件存到哪？随后是谁、在第 5 课的哪一步接手它们？
-5. `/api/download` 里的 `is_relative_to` 检查在防什么？不设会有什么风险？
-6. 为什么 `reload=True` 时启动字典会打印两遍？
+4. WebSocket 的 URL 为什么设计成 `/ws/{thread_id}`，而不是所有客户端共用一条 `/ws`？
+5. `/api/upload` 把文件存到哪？随后是谁、在第 5 课的哪一步接手它们？
+6. `/api/download` 里的 `is_relative_to` 检查在防什么？（举个攻击例子）为什么说"接收路径参数的接口必做"？
+7. 一个任务跑完、用户关掉网页后，服务端有哪**两处**资源需要清理？
 
 <details>
 <summary>💡 参考答案（用自己的话答对意思即可）</summary>
 
-1. `asyncio.create_task(run_deep_agent(...))`——任务交给事件循环后台执行，接口立刻返回 `started`。改成 `await` 则接口要等任务跑完（1~3 分钟）才响应，多个用户会互相堵死。
+1. `asyncio.create_task(run_deep_agent(...))`——任务交给事件循环后台执行，接口立刻返回 `started`。改成 `await` 会导致连锁反应：HTTP 请求要挂 1~3 分钟 → 前端超时 → 服务器并发能力骤降。
 2. HTTP 是"一问一答"——客户端不请求，服务器不能主动推送；直播要求服务器随时把进度说出来，需要长连接双向通道，即 WebSocket。
 3. 定义并校验请求体的形状：`query` 必填、`thread_id` 可选；FastAPI 还据此自动生成 /docs 的输入表单（校验失败自动 422）。
-4. 存到 `updated/session_{thread_id}/`；随后第 5 课 `run_deep_agent` 的"准备阶段"检查该目录，把文件 `copy2` 到会话办公室，并拼提示词让大模型先读取。
-5. 防"路径穿越 / 越权访问"——有人可能传 `../` 或系统里其他路径，想下载 output/ 之外的文件。没有这道门禁，服务器上任意文件都可能被下载。
-6. reload 模式有"监工进程 + 干活进程"两个进程，都会 import 一遍 server.py（连带 prompts.py），所以各打印一遍。
+4. 为了"**对号入座**"：每条连接绑定一个会话，`manager` 才能把某个会话的进度精准推给对应的人。如果共用一条 `/ws`，多用户的消息会互相串线，也无法定向推送。
+5. 存到 `updated/session_{thread_id}/`；随后第 5 课 `run_deep_agent` 的"准备阶段"检查该目录，把文件 `copy2` 到会话办公室，并拼提示词让大模型先读取。
+6. 防**路径穿越攻击**：比如传 `../../etc/passwd` 想读服务器上的敏感文件。`resolve()` 解析真实路径 + `is_relative_to()` 限定在 output/ 内。凡接收路径参数的接口都必须做——否则等于把整个文件系统暴露出去。
+7. 两处：① **WebSocket 连接**——用户断线要在 `manager` 里注销（本课）；② **ContextVar**——第 5 课 `run_deep_agent` 的 `finally` 里 `reset_session_context` 清理"会话身份"，防串台。
 
 </details>
 
