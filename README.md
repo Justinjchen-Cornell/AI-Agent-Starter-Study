@@ -44,9 +44,9 @@ copy .env.example .env     # macOS / Linux 用: cp .env.example .env
 
 ```env
 OPENAI_BASE_URL=https://api.deepseek.com/v1
-OPENAI_API_KEY=sk-your-deepseek-key
+OPENAI_API_KEY=sk-xxxx
 LLM_QWEN_MAX=deepseek-chat
-TAVILY_API_KEY=tvly-your-tavily-key
+TAVILY_API_KEY=tvly-xxxx
 ```
 
 启动：
